@@ -82,53 +82,59 @@ async function login({page, options} = {}) {
 }
 
 async function getCookies({page, options} = {}) {
-  await page.waitForSelector(options.postLoginSelector)
+  if (options.postLoginSelector) {
+    await page.waitForSelector(options.postLoginSelector)
 
-  const cookies = options.getAllBrowserCookies
-    ? await getCookiesForAllDomains(page)
-    : await page.cookies(options.loginUrl)
+    const cookies = options.getAllBrowserCookies
+      ? await getCookiesForAllDomains(page)
+      : await page.cookies(options.loginUrl)
 
-  if (options.logs) {
-    console.log(cookies)
+    if (options.logs) {
+      console.log(cookies)
+    }
+
+    return cookies
   }
-
-  return cookies
 }
 
 async function getLocalStorageData({page, options} = {}) {
-  await page.waitForSelector(options.postLoginSelector)
+  if (options.postLoginSelector) {
+    await page.waitForSelector(options.postLoginSelector)
 
-  const localStorageData = await page.evaluate(() => {
-    let json = {}
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      json[key] = localStorage.getItem(key)
+    const localStorageData = await page.evaluate(() => {
+      let json = {}
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        json[key] = localStorage.getItem(key)
+      }
+      return json
+    })
+    if (options.logs) {
+      console.log(localStorageData)
     }
-    return json
-  })
-  if (options.logs) {
-    console.log(localStorageData)
-  }
 
-  return localStorageData
+    return localStorageData
+  }
 }
 
 async function getSessionStorageData({page, options} = {}) {
-  await page.waitForSelector(options.postLoginSelector)
+  if (options.postLoginSelector) {
+    await page.waitForSelector(options.postLoginSelector)
 
-  const sessionStorageData = await page.evaluate(() => {
-    let json = {}
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i)
-      json[key] = sessionStorage.getItem(key)
+    const sessionStorageData = await page.evaluate(() => {
+      let json = {}
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i)
+        json[key] = sessionStorage.getItem(key)
+      }
+      return json
+    })
+    if (options.logs) {
+      console.log(sessionStorageData)
     }
-    return json
-  })
-  if (options.logs) {
-    console.log(sessionStorageData)
-  }
 
-  return sessionStorageData
+    return sessionStorageData
+  }
 }
 
 async function getCookiesForAllDomains(page) {
@@ -172,6 +178,109 @@ async function racePromises(promises) {
   })
 }
 
+async function LoginConnectWithReturnRedirect(
+  typeUsername,
+  typePassword,
+  otpApp,
+  authorizeApp,
+  postLogin,
+  options
+) {
+  validateOptions(options)
+
+  if (!options.returnType || !options.redirectUrl) {
+    throw new Error('Must define function returnType ("form" | "url) and redirectUrl in options')
+  }
+
+  const launchOptions = {headless: false, args: options.args ? options.args : []}
+  const browser = await puppeteer.launch(launchOptions)
+
+  let page = await browser.newPage()
+  let originalPageIndex = 1
+  await page.setViewport({width: 1280, height: 800})
+  await page.setExtraHTTPHeaders({
+    'Accept-Language': 'en-USq=0.9,enq=0.8'
+  })
+  await page.setUserAgent(
+    'Mozilla/5.0 (Windows NT 10.0 Win64 x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36'
+  )
+  await page.setRequestInterception(true)
+
+  page.on('request', request => {
+    request.continue()
+  })
+
+  if (!options.loginUrl) {
+    throw new Error('LoginUrl has not been provided')
+  }
+
+  await page.goto(options.loginUrl)
+  await login({page, options})
+
+  // Switch to Popup Window
+  if (options.isPopup) {
+    if (options.popupDelay) {
+      await delay(options.popupDelay)
+    }
+    const pages = await browser.pages()[0]
+    // remember original window index
+    originalPageIndex = pages.indexOf(
+      pages.find(p => page._target._targetId === p._target._targetId)
+    )
+    page = pages[pages.length - 1]
+  }
+
+  await typeUsername({page, options})
+  await typePassword({page, options})
+  const request = await page.waitForRequest(request => request.url() === options.redirectUrl, {
+    timeout: 10000
+  })
+
+  if (typeof options.additionalSteps !== 'undefined') {
+    await options.additionalSteps({page, options})
+  }
+
+  if (options.otpSecret && otpApp) {
+    await otpApp({page, options})
+  }
+
+  if (options.authorize) {
+    await authorizeApp({page, options})
+  }
+
+  // Switch back to Original Window
+  if (options.isPopup) {
+    if (options.popupDelay) {
+      await delay(options.popupDelay)
+    }
+    const pages = await browser.pages()
+    page = pages[originalPageIndex]
+  }
+
+  if (options.postLoginClick) {
+    await postLogin({page, options})
+  }
+
+  if (options.cookieDelay) {
+    await delay(options.cookieDelay)
+  }
+
+  const cookies = await getCookies({page, options})
+  const lsd = await getLocalStorageData({page, options})
+  const ssd = await getSessionStorageData({page, options})
+  await finalizeSession({page, browser, options})
+
+  return {
+    requestUrl:
+      options.returnType === 'form' ? `${request.url()}?${request.postData()}` : request.url(),
+    cookies,
+    lsd,
+    ssd
+  }
+}
+
+module.exports.LoginConnectWithReturnRedirect = LoginConnectWithReturnRedirect
+
 async function baseLoginConnect(
   typeUsername,
   typePassword,
@@ -200,7 +309,6 @@ async function baseLoginConnect(
   )
 
   await page.goto(options.loginUrl)
-  await login({page, options})
 
   // Switch to Popup Window
   if (options.isPopup) {
@@ -470,6 +578,236 @@ module.exports.FacebookSocialLogin = async function FacebookSocialLogin(options 
   return baseLoginConnect(typeUsername, typePassword, null, null, postLogin, options)
 }
 
+// CUSTOMIZED LOGINS
+module.exports.GoogleSocialLoginAndReturn = async function GoogleSocialLogin(options = {}) {
+  const typeUsername = async function({page, options} = {}) {
+    try {
+      await page.waitForSelector('input#identifierId[type="email"]')
+      await page.type('input#identifierId[type="email"]', options.username)
+      await page.click('#identifierNext')
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  const typePassword = async function({page, options} = {}) {
+    try {
+      let buttonSelectors = ['#signIn', '#passwordNext', '#submit']
+
+      await page.waitForSelector('input[type="password"]', {visible: true})
+      await page.type('input[type="password"]', options.password)
+
+      const buttonSelector = await waitForMultipleSelectors(buttonSelectors, {visible: true}, page)
+      await page.click(buttonSelector)
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  const postLogin = async function({page, options} = {}) {
+    try {
+      await page.waitForSelector(options.postLoginClick)
+      await page.click(options.postLoginClick)
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  return LoginConnectWithReturnRedirect(typeUsername, typePassword, null, null, postLogin, options)
+}
+
+module.exports.GitHubSocialLoginAndReturn = async function GitHubSocialLogin(options = {}) {
+  const typeUsername = async function({page, options} = {}) {
+    try {
+      await page.waitForSelector('input#login_field')
+      await page.type('input#login_field', options.username)
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  const typePassword = async function({page, options} = {}) {
+    try {
+      await page.waitForSelector('input#password', {visible: true})
+      await page.type('input#password', options.password)
+      await page.click('input[type="submit"]')
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  const authorizeApp = async function({page, options} = {}) {
+    await page.waitForSelector('button#js-oauth-authorize-btn', {visible: true})
+    await page.click('button#js-oauth-authorize-btn', options.password)
+  }
+
+  const postLogin = async function({page, options} = {}) {
+    try {
+      await page.waitForSelector(options.postLoginClick)
+      await page.click(options.postLoginClick)
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  return baseLoginConnect(typeUsername, typePassword, null, authorizeApp, postLogin, options)
+}
+
+module.exports.MicrosoftSocialLoginAndReturn = async function MicrosoftSocialLoginAndReturn(
+  options = {}
+) {
+  const typeUsername = async function({page, options} = {}) {
+    try {
+      await page.waitForSelector('input[type="email"]')
+      await page.type('input[type="email"]', options.username)
+      await page.click('input[type="submit"]')
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  const typePassword = async function({page, options} = {}) {
+    try {
+      await delay(5000)
+
+      await page.waitForSelector('input[type="password"]', {visible: true})
+      await page.type('input[type="password"]', options.password)
+      await page.click('input[type="submit"]')
+
+      // In-case microsoft asks to add a backup account
+      try {
+        await page.waitForSelector('#iShowSkip', {timeout: 5000})
+        await page.click('#iShowSkip')
+      } catch (e) {
+        // Do nothing
+      }
+
+      await page.waitForSelector('#idBtn_Back', {visible: true})
+      await page.click('#idBtn_Back')
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  const authorizeApp = async function({page, options} = {}) {
+    await page.waitForSelector('button#js-oauth-authorize-btn', {visible: true})
+    await page.click('button#js-oauth-authorize-btn', options.password)
+  }
+
+  const postLogin = async function({page, options} = {}) {
+    try {
+      await page.waitForSelector(options.postLoginClick)
+      await page.click(options.postLoginClick)
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  return LoginConnectWithReturnRedirect(
+    typeUsername,
+    typePassword,
+    null,
+    authorizeApp,
+    postLogin,
+    options
+  )
+}
+
+module.exports.AmazonSocialLoginAndReturn = async function AmazonSocialLogin(options = {}) {
+  const typeUsername = async function({page, options} = {}) {
+    try {
+      await page.waitForSelector('#ap_email', {visible: true})
+      await page.type('#ap_email', options.username)
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  const typePassword = async function({page, options} = {}) {
+    let buttonSelectors = ['#signInSubmit']
+
+    try {
+      await page.waitForSelector('input[type="password"]', {visible: true})
+      await page.type('input[type="password"]', options.password)
+
+      const buttonSelector = await waitForMultipleSelectors(buttonSelectors, {visible: true}, page)
+      await page.click(buttonSelector)
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  const otpApp = async function({page, options} = {}) {
+    let buttonSelectors = ['#auth-signin-button']
+
+    await page.waitForSelector('#auth-mfa-otpcode', {visible: true})
+    await page.type('#auth-mfa-otpcode', authenticator.generate(options.otpSecret))
+
+    const buttonSelector = await waitForMultipleSelectors(buttonSelectors, {visible: true}, page)
+    await page.click(buttonSelector)
+  }
+
+  return LoginConnectWithReturnRedirect(typeUsername, typePassword, otpApp, null, null, options)
+}
+
+module.exports.FacebookSocialLoginAndReturn = async function FacebookSocialLogin(options = {}) {
+  const typeUsername = async function({page, options} = {}) {
+    try {
+      const emailSelector = '#email'
+      await page.waitForSelector(emailSelector)
+      await page.type(emailSelector, options.username)
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  const typePassword = async function({page, options} = {}) {
+    try {
+      await page.waitForSelector('input[type="password"]', {visible: true})
+      await page.type('input[type="password"]', options.password)
+
+      // Submit first form
+      await page.click('#loginbutton')
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+
+    try {
+      // Submit next form
+      const confirmBtnSelector = 'button[name="__CONFIRM__"]'
+      await page.waitForSelector(confirmBtnSelector)
+      await page.click(confirmBtnSelector)
+    } catch (e) {
+      // Isn't always presented by Facebook
+    }
+  }
+
+  const postLogin = async function({page, options} = {}) {
+    try {
+      await page.waitForSelector(options.postLoginClick)
+      await page.click(options.postLoginClick)
+    } catch (err) {
+      takeScreenshot(page, options)
+      throw err
+    }
+  }
+
+  return LoginConnectWithReturnRedirect(typeUsername, typePassword, null, null, postLogin, options)
+}
+
 module.exports.CustomizedLogin = async function CustomizedLogin(options = {}) {
   if (options.usernameField && options.passwordField) {
     const typeUsername = async function({page, options} = {}) {
@@ -512,3 +850,20 @@ module.exports.CustomizedLogin = async function CustomizedLogin(options = {}) {
     )
   }
 }
+/*
+
+module.exports.MicrosoftSocialLoginAndReturn({ username: 'clipchamp.e2e@outlook.com',
+  password: 'n-U\\1SOf?)!@qm7hYC,{',
+  returnType: 'POST',
+  redirectUrl: 'http://localhost:4200/v2/auth/microsoft',
+  loginUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?response_type=id_token%20token&client_id=b9e3fc7e-0bb2-4db3-ae2c-9cf83a40e556&redirect_uri=http://localhost:4200/v2/auth/microsoft&state=%7B%22redirect_url%22%3A%22http%3A%2F%2Flocalhost%3A4200%2Flogin%3Ftype%3Dmicrosoft%22%2C%22error_redirect_url%22%3A%22http%3A%2F%2Flocalhost%3A4200%2Flogin%22%7D&scope=openid%20profile%20email&access_type=offline&response_mode=form_post&nonce=aa1c8904-913a-4b75-bb70-832de90e750e'}).then(res => console.log)
+*/
+/*
+
+{ username: 'clipchamp.e2e@outlook.com',
+password: 'n-U\\1SOf?)!@qm7hYC,{',
+returnType: 'POST',
+redirectUrl: 'http://localhost:4200/v2/auth/microsoft',
+loginUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize?response_type=id_token%20token&client_id=b9e3fc7e-0bb2-4db3-ae2c-9cf83a40e556&redirect_uri=http://localhost:4200/v2/auth/microsoft&state=%7B%22redirect_url%22%3A%22http%3A%2F%2Flocalhost%3A4200%2Flogin%3Ftype%3Dmicrosoft%22%2C%22error_redirect_url%22%3A%22http%3A%2F%2Flocalhost%3A4200%2Flogin%22%7D&scope=openid%20profile%20email&access_type=offline&response_mode=form_post&nonce=aa1c8904-913a-4b75-bb70-832de90e750e'}
+
+*/
