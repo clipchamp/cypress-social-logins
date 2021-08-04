@@ -1,6 +1,6 @@
 {
   "name": "@clipchamp/cypress-social-logins",
-  "version": "0.0.1-development",
+  "version": "0.0.2-development",
   "description": "cypress authentication flows using social network providers",
   "main": "src/index.js",
   "engines": {
