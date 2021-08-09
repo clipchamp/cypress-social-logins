@@ -35,7 +35,7 @@ const fs = require('fs')
  */
 
 function delay(time) {
-  return new Promise(function(resolve) {
+  return new Promise(function (resolve) {
     setTimeout(resolve, time)
   })
 }
@@ -148,7 +148,7 @@ async function finalizeSession({page, browser, options} = {}) {
 
 async function waitForMultipleSelectors(selectors, options, page) {
   const navigationOutcome = await racePromises(
-    selectors.map(selector => page.waitForSelector(selector, options))
+    selectors.map((selector) => page.waitForSelector(selector, options))
   )
   return selectors[parseInt(navigationOutcome)]
 }
@@ -158,12 +158,12 @@ async function racePromises(promises) {
   let resolved = false
   promises.map((promise, index) => {
     wrappedPromises.push(
-      new Promise(resolve => {
+      new Promise((resolve) => {
         promise.then(
           () => {
             resolve(index)
           },
-          error => {
+          (error) => {
             if (!resolved) {
               throw error
             }
@@ -172,7 +172,7 @@ async function racePromises(promises) {
       })
     )
   })
-  return Promise.race(wrappedPromises).then(index => {
+  return Promise.race(wrappedPromises).then((index) => {
     resolved = true
     return index
   })
@@ -206,7 +206,7 @@ async function LoginConnectWithReturnRedirect(
   )
   await page.setRequestInterception(true)
 
-  page.on('request', request => {
+  page.on('request', (request) => {
     request.continue()
   })
 
@@ -225,14 +225,14 @@ async function LoginConnectWithReturnRedirect(
     const pages = await browser.pages()[0]
     // remember original window index
     originalPageIndex = pages.indexOf(
-      pages.find(p => page._target._targetId === p._target._targetId)
+      pages.find((p) => page._target._targetId === p._target._targetId)
     )
     page = pages[pages.length - 1]
   }
 
   await typeUsername({page, options})
   await typePassword({page, options})
-  const request = await page.waitForRequest(request => request.url() === options.redirectUrl, {
+  const request = await page.waitForRequest((request) => request.url() === options.redirectUrl, {
     timeout: 10000
   })
 
@@ -318,7 +318,7 @@ async function baseLoginConnect(
     const pages = await browser.pages()
     // remember original window index
     originalPageIndex = pages.indexOf(
-      pages.find(p => page._target._targetId === p._target._targetId)
+      pages.find((p) => page._target._targetId === p._target._targetId)
     )
     page = pages[pages.length - 1]
   }
@@ -370,7 +370,7 @@ async function baseLoginConnect(
 module.exports.baseLoginConnect = baseLoginConnect
 
 module.exports.GoogleSocialLogin = async function GoogleSocialLogin(options = {}) {
-  const typeUsername = async function({page, options} = {}) {
+  const typeUsername = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('input#identifierId[type="email"]')
       await page.type('input#identifierId[type="email"]', options.username)
@@ -381,7 +381,7 @@ module.exports.GoogleSocialLogin = async function GoogleSocialLogin(options = {}
     }
   }
 
-  const typePassword = async function({page, options} = {}) {
+  const typePassword = async function ({page, options} = {}) {
     try {
       let buttonSelectors = ['#signIn', '#passwordNext', '#submit']
 
@@ -396,7 +396,7 @@ module.exports.GoogleSocialLogin = async function GoogleSocialLogin(options = {}
     }
   }
 
-  const postLogin = async function({page, options} = {}) {
+  const postLogin = async function ({page, options} = {}) {
     try {
       await page.waitForSelector(options.postLoginClick)
       await page.click(options.postLoginClick)
@@ -410,7 +410,7 @@ module.exports.GoogleSocialLogin = async function GoogleSocialLogin(options = {}
 }
 
 module.exports.GitHubSocialLogin = async function GitHubSocialLogin(options = {}) {
-  const typeUsername = async function({page, options} = {}) {
+  const typeUsername = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('input#login_field')
       await page.type('input#login_field', options.username)
@@ -420,7 +420,7 @@ module.exports.GitHubSocialLogin = async function GitHubSocialLogin(options = {}
     }
   }
 
-  const typePassword = async function({page, options} = {}) {
+  const typePassword = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('input#password', {visible: true})
       await page.type('input#password', options.password)
@@ -431,12 +431,12 @@ module.exports.GitHubSocialLogin = async function GitHubSocialLogin(options = {}
     }
   }
 
-  const authorizeApp = async function({page, options} = {}) {
+  const authorizeApp = async function ({page, options} = {}) {
     await page.waitForSelector('button#js-oauth-authorize-btn', {visible: true})
     await page.click('button#js-oauth-authorize-btn', options.password)
   }
 
-  const postLogin = async function({page, options} = {}) {
+  const postLogin = async function ({page, options} = {}) {
     try {
       await page.waitForSelector(options.postLoginClick)
       await page.click(options.postLoginClick)
@@ -450,7 +450,7 @@ module.exports.GitHubSocialLogin = async function GitHubSocialLogin(options = {}
 }
 
 module.exports.MicrosoftSocialLogin = async function MicrosoftSocialLogin(options = {}) {
-  const typeUsername = async function({page, options} = {}) {
+  const typeUsername = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('input[type="email"]')
       await page.type('input[type="email"]', options.username)
@@ -461,7 +461,7 @@ module.exports.MicrosoftSocialLogin = async function MicrosoftSocialLogin(option
     }
   }
 
-  const typePassword = async function({page, options} = {}) {
+  const typePassword = async function ({page, options} = {}) {
     try {
       await delay(5000)
 
@@ -474,12 +474,12 @@ module.exports.MicrosoftSocialLogin = async function MicrosoftSocialLogin(option
     }
   }
 
-  const authorizeApp = async function({page, options} = {}) {
+  const authorizeApp = async function ({page, options} = {}) {
     await page.waitForSelector('button#js-oauth-authorize-btn', {visible: true})
     await page.click('button#js-oauth-authorize-btn', options.password)
   }
 
-  const postLogin = async function({page, options} = {}) {
+  const postLogin = async function ({page, options} = {}) {
     try {
       await page.waitForSelector(options.postLoginClick)
       await page.click(options.postLoginClick)
@@ -493,7 +493,7 @@ module.exports.MicrosoftSocialLogin = async function MicrosoftSocialLogin(option
 }
 
 module.exports.AmazonSocialLogin = async function AmazonSocialLogin(options = {}) {
-  const typeUsername = async function({page, options} = {}) {
+  const typeUsername = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('#ap_email', {visible: true})
       await page.type('#ap_email', options.username)
@@ -503,7 +503,7 @@ module.exports.AmazonSocialLogin = async function AmazonSocialLogin(options = {}
     }
   }
 
-  const typePassword = async function({page, options} = {}) {
+  const typePassword = async function ({page, options} = {}) {
     let buttonSelectors = ['#signInSubmit']
 
     try {
@@ -518,7 +518,7 @@ module.exports.AmazonSocialLogin = async function AmazonSocialLogin(options = {}
     }
   }
 
-  const otpApp = async function({page, options} = {}) {
+  const otpApp = async function ({page, options} = {}) {
     let buttonSelectors = ['#auth-signin-button']
 
     await page.waitForSelector('#auth-mfa-otpcode', {visible: true})
@@ -532,7 +532,7 @@ module.exports.AmazonSocialLogin = async function AmazonSocialLogin(options = {}
 }
 
 module.exports.FacebookSocialLogin = async function FacebookSocialLogin(options = {}) {
-  const typeUsername = async function({page, options} = {}) {
+  const typeUsername = async function ({page, options} = {}) {
     try {
       const emailSelector = '#email'
       await page.waitForSelector(emailSelector)
@@ -543,7 +543,7 @@ module.exports.FacebookSocialLogin = async function FacebookSocialLogin(options 
     }
   }
 
-  const typePassword = async function({page, options} = {}) {
+  const typePassword = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('input[type="password"]', {visible: true})
       await page.type('input[type="password"]', options.password)
@@ -565,7 +565,7 @@ module.exports.FacebookSocialLogin = async function FacebookSocialLogin(options 
     }
   }
 
-  const postLogin = async function({page, options} = {}) {
+  const postLogin = async function ({page, options} = {}) {
     try {
       await page.waitForSelector(options.postLoginClick)
       await page.click(options.postLoginClick)
@@ -580,7 +580,7 @@ module.exports.FacebookSocialLogin = async function FacebookSocialLogin(options 
 
 // CUSTOMIZED LOGINS
 module.exports.GoogleSocialLoginAndReturn = async function GoogleSocialLogin(options = {}) {
-  const typeUsername = async function({page, options} = {}) {
+  const typeUsername = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('input#identifierId[type="email"]')
       await page.type('input#identifierId[type="email"]', options.username)
@@ -591,7 +591,7 @@ module.exports.GoogleSocialLoginAndReturn = async function GoogleSocialLogin(opt
     }
   }
 
-  const typePassword = async function({page, options} = {}) {
+  const typePassword = async function ({page, options} = {}) {
     try {
       let buttonSelectors = ['#signIn', '#passwordNext', '#submit']
 
@@ -606,7 +606,7 @@ module.exports.GoogleSocialLoginAndReturn = async function GoogleSocialLogin(opt
     }
   }
 
-  const postLogin = async function({page, options} = {}) {
+  const postLogin = async function ({page, options} = {}) {
     try {
       await page.waitForSelector(options.postLoginClick)
       await page.click(options.postLoginClick)
@@ -620,7 +620,7 @@ module.exports.GoogleSocialLoginAndReturn = async function GoogleSocialLogin(opt
 }
 
 module.exports.GitHubSocialLoginAndReturn = async function GitHubSocialLogin(options = {}) {
-  const typeUsername = async function({page, options} = {}) {
+  const typeUsername = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('input#login_field')
       await page.type('input#login_field', options.username)
@@ -630,7 +630,7 @@ module.exports.GitHubSocialLoginAndReturn = async function GitHubSocialLogin(opt
     }
   }
 
-  const typePassword = async function({page, options} = {}) {
+  const typePassword = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('input#password', {visible: true})
       await page.type('input#password', options.password)
@@ -641,12 +641,12 @@ module.exports.GitHubSocialLoginAndReturn = async function GitHubSocialLogin(opt
     }
   }
 
-  const authorizeApp = async function({page, options} = {}) {
+  const authorizeApp = async function ({page, options} = {}) {
     await page.waitForSelector('button#js-oauth-authorize-btn', {visible: true})
     await page.click('button#js-oauth-authorize-btn', options.password)
   }
 
-  const postLogin = async function({page, options} = {}) {
+  const postLogin = async function ({page, options} = {}) {
     try {
       await page.waitForSelector(options.postLoginClick)
       await page.click(options.postLoginClick)
@@ -662,7 +662,7 @@ module.exports.GitHubSocialLoginAndReturn = async function GitHubSocialLogin(opt
 module.exports.MicrosoftSocialLoginAndReturn = async function MicrosoftSocialLoginAndReturn(
   options = {}
 ) {
-  const typeUsername = async function({page, options} = {}) {
+  const typeUsername = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('input[type="email"]')
       await page.type('input[type="email"]', options.username)
@@ -673,36 +673,41 @@ module.exports.MicrosoftSocialLoginAndReturn = async function MicrosoftSocialLog
     }
   }
 
-  const typePassword = async function({page, options} = {}) {
+  const typePassword = async function ({page, options} = {}) {
     try {
       await delay(5000)
 
       await page.waitForSelector('input[type="password"]', {visible: true})
       await page.type('input[type="password"]', options.password)
       await page.click('input[type="submit"]')
-
-      // In-case microsoft asks to add a backup account
+      
       try {
-        await page.waitForSelector('#iShowSkip', {timeout: 5000})
+        // Add backup account
+        await page.waitForSelector('#iShowSkip', {timeout: 3000})
         await page.click('#iShowSkip')
       } catch (e) {
-        // Do nothing
+        // do nothing
       }
-
-      await page.waitForSelector('#idBtn_Back', {visible: true})
-      await page.click('#idBtn_Back')
+      
+      try {
+        // Stay logged in
+        await page.waitForSelector('#idBtn_Back', {timeout: 3000})
+        await page.click('#idBtn_Back')
+      } catch (e) {
+        // do nothing
+      }
     } catch (err) {
       takeScreenshot(page, options)
       throw err
     }
   }
 
-  const authorizeApp = async function({page, options} = {}) {
+  const authorizeApp = async function ({page, options} = {}) {
     await page.waitForSelector('button#js-oauth-authorize-btn', {visible: true})
     await page.click('button#js-oauth-authorize-btn', options.password)
   }
 
-  const postLogin = async function({page, options} = {}) {
+  const postLogin = async function ({page, options} = {}) {
     try {
       await page.waitForSelector(options.postLoginClick)
       await page.click(options.postLoginClick)
@@ -723,7 +728,7 @@ module.exports.MicrosoftSocialLoginAndReturn = async function MicrosoftSocialLog
 }
 
 module.exports.AmazonSocialLoginAndReturn = async function AmazonSocialLogin(options = {}) {
-  const typeUsername = async function({page, options} = {}) {
+  const typeUsername = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('#ap_email', {visible: true})
       await page.type('#ap_email', options.username)
@@ -733,7 +738,7 @@ module.exports.AmazonSocialLoginAndReturn = async function AmazonSocialLogin(opt
     }
   }
 
-  const typePassword = async function({page, options} = {}) {
+  const typePassword = async function ({page, options} = {}) {
     let buttonSelectors = ['#signInSubmit']
 
     try {
@@ -748,7 +753,7 @@ module.exports.AmazonSocialLoginAndReturn = async function AmazonSocialLogin(opt
     }
   }
 
-  const otpApp = async function({page, options} = {}) {
+  const otpApp = async function ({page, options} = {}) {
     let buttonSelectors = ['#auth-signin-button']
 
     await page.waitForSelector('#auth-mfa-otpcode', {visible: true})
@@ -762,7 +767,7 @@ module.exports.AmazonSocialLoginAndReturn = async function AmazonSocialLogin(opt
 }
 
 module.exports.FacebookSocialLoginAndReturn = async function FacebookSocialLogin(options = {}) {
-  const typeUsername = async function({page, options} = {}) {
+  const typeUsername = async function ({page, options} = {}) {
     try {
       const emailSelector = '#email'
       await page.waitForSelector(emailSelector)
@@ -773,7 +778,7 @@ module.exports.FacebookSocialLoginAndReturn = async function FacebookSocialLogin
     }
   }
 
-  const typePassword = async function({page, options} = {}) {
+  const typePassword = async function ({page, options} = {}) {
     try {
       await page.waitForSelector('input[type="password"]', {visible: true})
       await page.type('input[type="password"]', options.password)
@@ -795,7 +800,7 @@ module.exports.FacebookSocialLoginAndReturn = async function FacebookSocialLogin
     }
   }
 
-  const postLogin = async function({page, options} = {}) {
+  const postLogin = async function ({page, options} = {}) {
     try {
       await page.waitForSelector(options.postLoginClick)
       await page.click(options.postLoginClick)
@@ -810,7 +815,7 @@ module.exports.FacebookSocialLoginAndReturn = async function FacebookSocialLogin
 
 module.exports.CustomizedLogin = async function CustomizedLogin(options = {}) {
   if (options.usernameField && options.passwordField) {
-    const typeUsername = async function({page, options} = {}) {
+    const typeUsername = async function ({page, options} = {}) {
       try {
         await page.waitForSelector(options.usernameField, {visible: true})
         await page.type(options.usernameField, options.username)
@@ -822,7 +827,7 @@ module.exports.CustomizedLogin = async function CustomizedLogin(options = {}) {
         throw err
       }
     }
-    const typePassword = async function({page, options} = {}) {
+    const typePassword = async function ({page, options} = {}) {
       try {
         await page.waitForSelector(options.passwordField, {visible: true})
         await page.type(options.passwordField, options.password)
@@ -834,7 +839,7 @@ module.exports.CustomizedLogin = async function CustomizedLogin(options = {}) {
         throw err
       }
     }
-    const postLogin = async function({page, options} = {}) {
+    const postLogin = async function ({page, options} = {}) {
       try {
         await page.waitForSelector(options.postLoginClick)
         await page.click(options.postLoginClick)
