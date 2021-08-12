@@ -207,6 +207,9 @@ async function LoginConnectWithReturnRedirect(
   await page.setRequestInterception(true)
 
   page.on('request', (request) => {
+    if (request.url() === options.redirectUrl && options.abortOnInterception === true) {
+      return request.abort()
+    }
     request.continue()
   })
 
@@ -680,7 +683,7 @@ module.exports.MicrosoftSocialLoginAndReturn = async function MicrosoftSocialLog
       await page.waitForSelector('input[type="password"]', {visible: true})
       await page.type('input[type="password"]', options.password)
       await page.click('input[type="submit"]')
-      
+
       try {
         // Add backup account
         await page.waitForSelector('#iShowSkip', {timeout: 3000})
@@ -688,7 +691,7 @@ module.exports.MicrosoftSocialLoginAndReturn = async function MicrosoftSocialLog
       } catch (e) {
         // do nothing
       }
-      
+
       try {
         // Stay logged in
         await page.waitForSelector('#idBtn_Back', {timeout: 3000})
